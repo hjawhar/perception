@@ -20,11 +20,11 @@ use std::path::PathBuf;
 #[command(version)]
 struct Cli {
     /// Path to configuration file.
-    #[arg(short, long, default_value = "perception.toml")]
+    #[arg(short, long, global = true, default_value = "perception.toml")]
     config: PathBuf,
 
     /// Increase log verbosity (-v, -vv, -vvv).
-    #[arg(short, long, action = clap::ArgAction::Count)]
+    #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     verbose: u8,
 
     #[command(subcommand)]

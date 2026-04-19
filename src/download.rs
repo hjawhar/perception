@@ -33,47 +33,54 @@ struct ModelInfo {
 
 // TODO: update SHA256 after first download
 static REGISTRY: &[ModelInfo] = &[
+    // Object detection — YOLO11 nano (community-exported ONNX, ~10MB)
     ModelInfo {
         name: "yolo26n",
-        url: "https://huggingface.co/ultralytics/yolo26/resolve/main/yolo26n.onnx",
+        url: "https://huggingface.co/deepghs/yolos/resolve/main/yolo11n/model.onnx",
         sha256: PLACEHOLDER_SHA256,
-        filename: "yolo26n.onnx",
+        filename: "yolo11n.onnx",
     },
+    // Object detection — YOLO11 small (~20MB)
     ModelInfo {
         name: "yolo26s",
-        url: "https://huggingface.co/ultralytics/yolo26/resolve/main/yolo26s.onnx",
+        url: "https://huggingface.co/deepghs/yolos/resolve/main/yolo11s/model.onnx",
         sha256: PLACEHOLDER_SHA256,
-        filename: "yolo26s.onnx",
+        filename: "yolo11s.onnx",
     },
+    // Face detection — SCRFD 2.5G (~3MB)
     ModelInfo {
         name: "scrfd_2.5g",
-        url: "https://huggingface.co/insightface/scrfd/resolve/main/scrfd_2.5g_bnkps.onnx",
+        url: "https://huggingface.co/crj/dl-ws/resolve/main/scrfd_2.5g.onnx",
         sha256: PLACEHOLDER_SHA256,
-        filename: "scrfd_2.5g_bnkps.onnx",
+        filename: "scrfd_2.5g.onnx",
     },
+    // Face recognition — ArcFace ResNet50 (onnx-community, ~170MB)
     ModelInfo {
         name: "arcface_r50",
-        url: "https://huggingface.co/onnx-community/arcface/resolve/main/arcface_r50.onnx",
+        url: "https://huggingface.co/onnx-community/arcface-onnx/resolve/main/arcface.onnx",
         sha256: PLACEHOLDER_SHA256,
         filename: "arcface_r50.onnx",
     },
+    // OCR text detection — PaddleOCR v5 (~4MB)
     ModelInfo {
         name: "ppocr_v5_det",
-        url: "https://huggingface.co/PaddlePaddle/ppocr-v5/resolve/main/en_PP-OCRv5_det_infer.onnx",
+        url: "https://huggingface.co/monkt/paddleocr-onnx/resolve/main/detection/v5/det.onnx",
         sha256: PLACEHOLDER_SHA256,
-        filename: "en_PP-OCRv5_det_infer.onnx",
+        filename: "ppocr_v5_det.onnx",
     },
+    // OCR text recognition — PaddleOCR v5 Latin (~10MB)
     ModelInfo {
         name: "ppocr_v5_rec",
-        url: "https://huggingface.co/PaddlePaddle/ppocr-v5/resolve/main/en_PP-OCRv5_rec_infer.onnx",
+        url: "https://huggingface.co/monkt/paddleocr-onnx/resolve/main/languages/latin/rec.onnx",
         sha256: PLACEHOLDER_SHA256,
-        filename: "en_PP-OCRv5_rec_infer.onnx",
+        filename: "ppocr_v5_rec.onnx",
     },
+    // OCR character dictionary — PaddleOCR Latin
     ModelInfo {
         name: "ppocr_v5_keys",
-        url: "https://huggingface.co/PaddlePaddle/ppocr-v5/resolve/main/en_dict.txt",
+        url: "https://huggingface.co/monkt/paddleocr-onnx/resolve/main/languages/latin/dict.txt",
         sha256: PLACEHOLDER_SHA256,
-        filename: "en_dict.txt",
+        filename: "ppocr_v5_keys.txt",
     },
 ];
 
