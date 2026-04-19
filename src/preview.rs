@@ -31,12 +31,14 @@ fn frame_to_mat(frame: &Frame) -> crate::error::Result<Mat> {
 
 /// Draw detection bounding boxes and labels onto a Mat.
 fn draw_overlays(display: &mut Mat, detections: &[TrackedDetection]) -> crate::error::Result<()> {
+    let black = core::Scalar::new(0.0, 0.0, 0.0, 0.0);
+
     for td in detections {
         let det = &td.detection;
         let color = match det.kind {
-            DetectionKind::Object => core::Scalar::new(0.0, 255.0, 0.0, 0.0),
-            DetectionKind::Face => core::Scalar::new(255.0, 0.0, 0.0, 0.0),
-            DetectionKind::Text => core::Scalar::new(0.0, 0.0, 255.0, 0.0),
+            DetectionKind::Object => core::Scalar::new(50.0, 220.0, 50.0, 0.0),
+            DetectionKind::Face => core::Scalar::new(255.0, 100.0, 50.0, 0.0),
+            DetectionKind::Text => core::Scalar::new(50.0, 50.0, 255.0, 0.0),
         };
 
         let rect = core::Rect::new(
@@ -46,7 +48,7 @@ fn draw_overlays(display: &mut Mat, detections: &[TrackedDetection]) -> crate::e
             (det.bbox.y2 - det.bbox.y1) as i32,
         );
 
-        imgproc::rectangle(display, rect, color, 2, imgproc::LINE_8, 0)
+        imgproc::rectangle(display, rect, color, 1, imgproc::LINE_AA, 0)
             .map_err(|e| PerceptionError::OpenCv(e.to_string()))?;
 
         let label = format!(
@@ -55,15 +57,36 @@ fn draw_overlays(display: &mut Mat, detections: &[TrackedDetection]) -> crate::e
             det.label,
             det.confidence * 100.0
         );
+
+        let font = imgproc::FONT_HERSHEY_SIMPLEX;
+        let font_scale = 0.45;
+        let thickness = 1;
+        let origin = core::Point::new(det.bbox.x1 as i32, det.bbox.y1 as i32 - 4);
+
+        // Measure text to draw a filled dark background.
+        let mut baseline = 0;
+        let text_size =
+            imgproc::get_text_size(&label, font, font_scale, thickness, &mut baseline)
+                .map_err(|e| PerceptionError::OpenCv(e.to_string()))?;
+
+        let bg_rect = core::Rect::new(
+            origin.x,
+            origin.y - text_size.height - 2,
+            text_size.width + 4,
+            text_size.height + baseline + 4,
+        );
+        imgproc::rectangle(display, bg_rect, black, imgproc::FILLED, imgproc::LINE_8, 0)
+            .map_err(|e| PerceptionError::OpenCv(e.to_string()))?;
+
         imgproc::put_text(
             display,
             &label,
-            core::Point::new(det.bbox.x1 as i32, det.bbox.y1 as i32 - 5),
-            imgproc::FONT_HERSHEY_SIMPLEX,
-            0.5,
+            origin,
+            font,
+            font_scale,
             color,
-            1,
-            imgproc::LINE_8,
+            thickness,
+            imgproc::LINE_AA,
             false,
         )
         .map_err(|e| PerceptionError::OpenCv(e.to_string()))?;
