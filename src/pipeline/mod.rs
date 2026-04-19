@@ -251,7 +251,7 @@ impl Pipeline {
                                     m.name.clone(),
                                     m.similarity,
                                 ));
-                                break; // one match per person is sufficient
+                                break;
                             }
                         }
                     }
@@ -291,7 +291,6 @@ impl Pipeline {
             event.track_id = Some(td.track_id);
             event.label = Some(td.detection.label.clone());
 
-            // Attach face match if available
             if let Some((_, ref name, sim)) =
                 face_results.iter().find(|(tid, _, _)| *tid == td.track_id)
             {
@@ -299,7 +298,6 @@ impl Pipeline {
                 event.face_similarity = Some(*sim);
             }
 
-            // Attach OCR result if available
             if let Some((_, ref text)) =
                 ocr_results.iter().find(|(tid, _)| *tid == td.track_id)
             {
@@ -312,9 +310,13 @@ impl Pipeline {
         // 7. Store
         self.storage.store_events(&events).await?;
 
-        // Show preview if enabled
+        // 8. Preview — returns false if ESC was pressed
         if let Some(ref preview) = self.preview {
-            let _ = preview.show(frame, &tracked);
+            if !preview.show(frame, &tracked)? {
+                return Err(crate::error::PerceptionError::Capture(
+                    "preview window closed".into(),
+                ));
+            }
         }
 
         Ok(events)
@@ -351,14 +353,15 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
     // Bounded channel: capture thread -> async pipeline.
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Frame>(CHANNEL_CAPACITY);
 
+    // Shared stop flag: set by Ctrl+C or ESC, checked by capture thread.
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop_capture = stop.clone();
+
     // Track dropped frames in the capture thread.
     let dropped = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
     let dropped_tx = dropped.clone();
 
-    // Spawn capture on a dedicated OS thread (OpenCV types are not Send-safe
-    // within the thread, but Frame copies are).
-    // Determine frame pacing: for video files, pace at the video's native FPS
-    // (or fps_limit if set) so preview is watchable and we don't blast through.
+    // Determine frame pacing for video files.
     let source_fps = source.fps();
     let fps_limit = config.capture.fps_limit;
     let frame_interval = if config.capture.source == "video" {
@@ -371,11 +374,15 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
     } else if fps_limit > 0 {
         Some(std::time::Duration::from_secs_f64(1.0 / fps_limit as f64))
     } else {
-        None // camera/rtsp: no pacing, run as fast as possible
+        None
     };
 
     let capture_handle = std::thread::spawn(move || {
         loop {
+            if stop_capture.load(std::sync::atomic::Ordering::Relaxed) {
+                debug!("capture thread: stop signal received");
+                break;
+            }
             let frame_start = Instant::now();
             match source.next_frame() {
                 Ok(Some(frame)) => {
@@ -392,7 +399,6 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
                     break;
                 }
             }
-            // Pace frames so video plays at real-time speed.
             if let Some(interval) = frame_interval {
                 let elapsed = frame_start.elapsed();
                 if elapsed < interval {
@@ -400,10 +406,9 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
                 }
             }
         }
-        // tx drops here, closing the channel.
     });
 
-    // Main processing loop with Ctrl+C handling.
+    // Main processing loop.
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::pin!(ctrl_c);
 
@@ -413,6 +418,7 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
 
             _ = &mut ctrl_c => {
                 info!("Ctrl+C received, shutting down");
+                stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 break;
             }
 
@@ -428,6 +434,11 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
                                 metrics.events_total += events.len() as u64;
                                 metrics.frames_processed += 1;
                                 metrics.log_if_due();
+                            }
+                            Err(ref e) if e.to_string().contains("preview window closed") => {
+                                info!("preview window closed (ESC), shutting down");
+                                stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                                break;
                             }
                             Err(e) => {
                                 error!(

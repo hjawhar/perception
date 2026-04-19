@@ -177,24 +177,34 @@ fn postprocess(
     confidence_threshold: f32,
     class_filter: &[String],
 ) -> Vec<Detection> {
-    // Reshape [1, N, C] or [N, C] -> [N, C]
-    let (n, cols) = match output.ndim() {
-        3 => (output.shape()[1], output.shape()[2]),
-        2 => (output.shape()[0], output.shape()[1]),
+    // YOLO11/v8 exports output as [1, C, N] where C = 4+num_classes and N = num_detections.
+    // Standard format is [1, N, C]. We detect the transposed format by checking:
+    // - C is small (4 + num_classes, typically 84 for COCO)
+    // - N is large (number of anchors, typically 8400 for 640x640)
+    // If dim1 looks like a feature count (<=200) and dim2 is much larger, transpose.
+    let output_2d = match output.ndim() {
+        3 => {
+            let (d1, d2) = (output.shape()[1], output.shape()[2]);
+            let is_transposed = d1 < d2 && d1 <= 200 && d2 >= d1 * 10;
+            if is_transposed {
+                debug!(shape = ?output.shape(), "transposing YOLO output from [1,C,N] to [N,C]");
+                let view_3d = output.to_shape((1, d1, d2)).unwrap();
+                view_3d.slice(s![0, .., ..]).t().to_owned()
+            } else {
+                output.to_shape((d1, d2)).unwrap().to_owned()
+            }
+        }
+        2 => output.to_shape((output.shape()[0], output.shape()[1])).unwrap().to_owned(),
         _ => return Vec::new(),
     };
+
+    let n = output_2d.shape()[0];
+    let cols = output_2d.shape()[1];
 
     if cols < 5 {
         return Vec::new();
     }
     let num_classes = cols - 4;
-
-    // Get a 2D view regardless of original shape
-    let flat = output.to_shape((output.len() / cols, cols));
-    let output_2d = match &flat {
-        Ok(view) => view,
-        Err(_) => return Vec::new(),
-    };
 
     let mut detections = Vec::new();
 
