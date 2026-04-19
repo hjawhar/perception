@@ -357,8 +357,26 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
 
     // Spawn capture on a dedicated OS thread (OpenCV types are not Send-safe
     // within the thread, but Frame copies are).
+    // Determine frame pacing: for video files, pace at the video's native FPS
+    // (or fps_limit if set) so preview is watchable and we don't blast through.
+    let source_fps = source.fps();
+    let fps_limit = config.capture.fps_limit;
+    let frame_interval = if config.capture.source == "video" {
+        let target_fps = if fps_limit > 0 {
+            (fps_limit as f64).min(source_fps.unwrap_or(30.0))
+        } else {
+            source_fps.unwrap_or(30.0)
+        };
+        Some(std::time::Duration::from_secs_f64(1.0 / target_fps))
+    } else if fps_limit > 0 {
+        Some(std::time::Duration::from_secs_f64(1.0 / fps_limit as f64))
+    } else {
+        None // camera/rtsp: no pacing, run as fast as possible
+    };
+
     let capture_handle = std::thread::spawn(move || {
         loop {
+            let frame_start = Instant::now();
             match source.next_frame() {
                 Ok(Some(frame)) => {
                     if tx.try_send(frame).is_err() {
@@ -372,6 +390,13 @@ pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
                 Err(e) => {
                     error!(error = %e, "capture error, stopping");
                     break;
+                }
+            }
+            // Pace frames so video plays at real-time speed.
+            if let Some(interval) = frame_interval {
+                let elapsed = frame_start.elapsed();
+                if elapsed < interval {
+                    std::thread::sleep(interval - elapsed);
                 }
             }
         }

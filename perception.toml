@@ -13,7 +13,7 @@
 
 [capture]
 source = "video"
-path = "tests/fixtures/cars.mp4"
+path = "tests/fixtures/highway_traffic.mp4"
 fps_limit = 30
 
 [pipeline]
