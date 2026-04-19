@@ -1,14 +1,26 @@
-# Live camera with preview window
+# Perception — Test Configuration
+#
+# Three test video files are included (CC0 licensed, from Mixkit):
+#   tests/fixtures/cars.mp4     — vehicles on a road
+#   tests/fixtures/people.mp4   — pedestrians
+#   tests/fixtures/traffic.mp4  — general scene
+#
+# Switch [capture.path] to test each, or use your webcam:
+#   source = "camera", path = "0"
+#
+# Build with preview:  cargo build --release --features preview
+# Run:                 ./target/release/perception run
+
 [capture]
-source = "camera"
-path = "0"
+source = "video"
+path = "tests/fixtures/cars.mp4"
 fps_limit = 30
 
 [pipeline]
 detection = true
 face_recognition = false
 ocr = false
-confidence_threshold = 0.5
+confidence_threshold = 0.3
 
 [pipeline.detection_config]
 model = "yolo26n"
