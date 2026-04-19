@@ -82,7 +82,7 @@ cpu = []
 cuda = ["ort/cuda"]
 tensorrt = ["ort/tensorrt"]
 coreml = ["ort/coreml"]
-preview = []
+preview = ["opencv/highgui"]
 postgres = ["sqlx/postgres"]
 
 [[bench]]

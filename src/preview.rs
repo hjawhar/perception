@@ -4,11 +4,12 @@
 //! window that displays annotated frames with bounding boxes, labels, and
 //! tracking IDs overlaid.
 
-use crate::types::{Detection, DetectionKind, Frame, TrackedDetection};
+use crate::types::{DetectionKind, Frame, TrackedDetection};
 
 /// Live preview window for displaying annotated frames.
 pub struct PreviewWindow {
     window_name: String,
+    #[allow(dead_code)]
     width: u32,
 }
 
@@ -40,19 +41,15 @@ impl PreviewWindow {
     ) -> crate::error::Result<bool> {
         use opencv::{core, highgui, imgproc, prelude::*};
 
-        let mat = opencv::core::Mat::new_rows_cols_with_data_def(
-            frame.height as i32,
-            frame.width as i32,
-            opencv::core::CV_8UC3,
-            unsafe {
-                // Safety: frame.data is valid for the lifetime of this call,
-                // and we don't mutate it.
-                core::DataMutSlice::new(
-                    frame.data.as_ptr() as *mut u8,
-                    frame.data.len(),
-                )
-            },
-        )
+        // Build a Mat from the frame's raw bytes.
+        let mat = unsafe {
+            opencv::core::Mat::new_rows_cols_with_data_unsafe_def(
+                frame.height as i32,
+                frame.width as i32,
+                opencv::core::CV_8UC3,
+                frame.data.as_ptr() as *mut std::ffi::c_void,
+            )
+        }
         .map_err(|e| crate::error::PerceptionError::OpenCv(e.to_string()))?;
 
         let mut display = mat.clone();
@@ -65,13 +62,22 @@ impl PreviewWindow {
                 DetectionKind::Text => core::Scalar::new(0.0, 0.0, 255.0, 0.0),   // red
             };
 
-            let pt1 = core::Point::new(det.bbox.x1 as i32, det.bbox.y1 as i32);
-            let pt2 = core::Point::new(det.bbox.x2 as i32, det.bbox.y2 as i32);
+            let rect = core::Rect::new(
+                det.bbox.x1 as i32,
+                det.bbox.y1 as i32,
+                (det.bbox.x2 - det.bbox.x1) as i32,
+                (det.bbox.y2 - det.bbox.y1) as i32,
+            );
 
-            imgproc::rectangle(&mut display, core::Rect::from_points(pt1, pt2), color, 2, imgproc::LINE_8, 0)
+            imgproc::rectangle(&mut display, rect, color, 2, imgproc::LINE_8, 0)
                 .map_err(|e| crate::error::PerceptionError::OpenCv(e.to_string()))?;
 
-            let label = format!("[{}] {} {:.0}%", td.track_id, det.label, det.confidence * 100.0);
+            let label = format!(
+                "[{}] {} {:.0}%",
+                td.track_id,
+                det.label,
+                det.confidence * 100.0
+            );
             imgproc::put_text(
                 &mut display,
                 &label,

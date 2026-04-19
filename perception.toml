@@ -1,0 +1,34 @@
+# Live camera with preview window
+[capture]
+source = "camera"
+path = "0"
+fps_limit = 30
+
+[pipeline]
+detection = true
+face_recognition = false
+ocr = false
+confidence_threshold = 0.5
+
+[pipeline.detection_config]
+model = "yolo26n"
+classes = []
+
+[pipeline.tracker_config]
+enabled = true
+max_age = 30
+iou_threshold = 0.3
+
+[storage]
+backend = "sqlite"
+sqlite_path = "./perception.db"
+crops_dir = "./crops/"
+save_crops = false
+
+[preview]
+enabled = true
+window_width = 1280
+
+[models]
+cache_dir = "./models/"
+auto_download = true
