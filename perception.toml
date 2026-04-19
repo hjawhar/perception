@@ -1,9 +1,7 @@
 # Perception — Test Configuration
 #
-# Three test video files are included (CC0 licensed, from Mixkit):
-#   tests/fixtures/cars.mp4     — vehicles on a road
-#   tests/fixtures/people.mp4   — pedestrians
-#   tests/fixtures/traffic.mp4  — general scene
+# Test video file included:
+#   tests/fixtures/highway_traffic.mp4 — highway surveillance footage
 #
 # Switch [capture.path] to test each, or use your webcam:
 #   source = "camera", path = "0"

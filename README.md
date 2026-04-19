@@ -2,6 +2,8 @@
 
 A high-throughput Rust binary for real-time computer vision: object detection, face recognition, and OCR. Designed for edge deployment on surveillance systems, drones, and roadside units with powerful GPU/CPU hardware.
 
+![Perception Demo](docs/demo.gif)
+
 ## What It Does
 
 - **Object Detection** — Detects and classifies objects (vehicles, people, bicycles, etc.) using YOLO26 via ONNX Runtime

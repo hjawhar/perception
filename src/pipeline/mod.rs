@@ -6,6 +6,7 @@ pub mod face;
 pub mod ocr;
 pub mod tracker;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -19,7 +20,7 @@ use crate::download::ModelPaths;
 use crate::engine::Engine;
 use crate::error::Result;
 use crate::face_db::FaceDb;
-use crate::preview::PreviewWindow;
+use crate::preview::{PreviewWindow, VideoRecorder};
 use crate::storage::{self, StorageBackend};
 use crate::types::{Detection, DetectionKind, Event, Frame, TrackedDetection};
 
@@ -107,13 +108,15 @@ pub struct Pipeline {
     tracker: Option<ObjectTracker>,
     storage: Box<dyn StorageBackend>,
     preview: Option<PreviewWindow>,
+    recorder: Option<VideoRecorder>,
+    record_path: Option<PathBuf>,
     config: Config,
 }
 
 impl Pipeline {
     /// Conditionally construct pipeline components based on config flags and
     /// available model paths.
-    pub async fn new(config: &Config, model_paths: &ModelPaths) -> Result<Self> {
+    pub async fn new(config: &Config, model_paths: &ModelPaths, record_path: Option<PathBuf>) -> Result<Self> {
         let detector = if config.pipeline.detection {
             if let Some(ref path) = model_paths.detection {
                 let engine = Arc::new(Engine::new(path)?);
@@ -203,7 +206,9 @@ impl Pipeline {
             tracker,
             storage,
             preview,
+            recorder: None, // initialized lazily on first frame (needs dimensions)
             config: config.clone(),
+            record_path,
         })
     }
 
@@ -319,6 +324,23 @@ impl Pipeline {
             }
         }
 
+
+        // 9. Record — initialize lazily on first frame, then write every frame
+        if self.record_path.is_some() && self.recorder.is_none() {
+            let path = self.record_path.as_ref().unwrap();
+            let fps = self.config.capture.fps_limit.max(1) as f64;
+            self.recorder = Some(VideoRecorder::new(
+                path,
+                fps,
+                frame.width as i32,
+                frame.height as i32,
+            )?);
+            info!(path = %path.display(), "recording annotated output");
+        }
+        if let Some(ref mut recorder) = self.recorder {
+            recorder.write_frame(frame, &tracked)?;
+        }
+
         Ok(events)
     }
 }
@@ -343,8 +365,8 @@ fn wrap_as_tracked(detections: Vec<Detection>) -> Vec<TrackedDetection> {
 /// Entry point called from main.rs. Constructs the pipeline, spawns the
 /// capture thread, and runs the per-frame processing loop until the source
 /// is exhausted or Ctrl+C is received.
-pub async fn run(config: Config, model_paths: ModelPaths) -> Result<()> {
-    let mut pipeline = Pipeline::new(&config, &model_paths).await?;
+pub async fn run(config: Config, model_paths: ModelPaths, record_path: Option<PathBuf>) -> Result<()> {
+    let mut pipeline = Pipeline::new(&config, &model_paths, record_path).await?;
     let mut metrics = Metrics::new();
 
     // Create frame source (must happen before thread spawn so errors surface here).

@@ -34,7 +34,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Run the perception pipeline.
-    Run,
+    Run {
+        /// Record annotated output to an MP4 file.
+        #[arg(long)]
+        record: Option<PathBuf>,
+    },
     /// Download or update models.
     Download,
     /// Manage known faces database.
@@ -77,7 +81,7 @@ async fn main() -> anyhow::Result<()> {
     init_tracing(cli.verbose);
 
     match cli.command {
-        Commands::Run => {
+        Commands::Run { record } => {
             let config = config::Config::load(&cli.config)?;
             tracing::info!(
                 source = %config.capture.source,
@@ -89,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
             let model_paths = download::ensure_models(&config).await?;
 
             // Build pipeline and run.
-            pipeline::run(config, model_paths).await?;
+            pipeline::run(config, model_paths, record).await?;
         }
         Commands::Download => {
             let config = config::Config::load(&cli.config)?;
