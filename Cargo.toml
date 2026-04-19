@@ -6,6 +6,7 @@ rust-version = "1.82"
 description = "High-throughput real-time object detection, face recognition, and OCR pipeline"
 license = "MIT"
 readme = "README.md"
+repository = "https://github.com/hjawhar/perception"
 
 [[bin]]
 name = "perception"
